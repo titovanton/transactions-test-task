@@ -1,0 +1,120 @@
+Имеются модели:
+
+1. Пользователь
+
+class User(Base):
+    id = Column(Integer, primary_key=True, index=True)
+    nickname = Column(String, nullable=True, default='')
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    role = Column(Enum(UserRole), nullable=False, default=UserRole.admin)
+    status = Column(Enum(UserStatus), nullable=False, default=UserStatus.pending)
+    user_type = Column(String, nullable=True)
+    invite_accept = Column(Boolean, default=False)
+
+    is_new_client = Column(Boolean, default=False)
+    is_superuser = Column(Boolean, default=False)
+
+2. Карта
+
+class Card(Base):
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('user.id'), nullable=True, default=None)
+    cardholder_id = Column(Integer, ForeignKey("cardholder.id"), nullable=True, default=None)
+    cardholder_type = Column(Enum(CardholderType), nullable=False, default=CardholderType.client)
+    bin_id = Column(Integer, ForeignKey("bin.id"), default=1)
+    form_factor = Column(Enum(CardFormFactor), nullable=False, default=CardFormFactor.virtual)
+    request_uuid = Column(String, unique=True, nullable=False, default=str(uuid4()))
+    card_id = Column(String, nullable=True, default=None, index=True)
+    nick_name = Column(String, nullable=True, default=None, index=True)
+    bank_nick_name = Column(String, nullable=True)
+    created_at = Column(String, nullable=True, default=None)
+    closed_at = Column(String, nullable=True, default=None)
+    mask_number = Column(String)
+    status = Column(String, nullable=True, default=None)
+    brand = Column(String, nullable=True, default=None)
+    activate_on_issue = Column(Boolean, default=True)
+
+    user = relationship("User", back_populates="cards", uselist=False)
+    cardholder = relationship("CardHolder", back_populates="cards")
+    settings = relationship("CardSettings", back_populates="card", uselist=False, cascade="all,delete")
+    transactions = relationship("Transaction", back_populates="card")
+    balance = relationship("CardBalance", back_populates="card", uselist=False, cascade="all,delete")
+    bin = relationship("Bin", back_populates="cards")
+    sensitive_data = relationship("CardSensitiveData", back_populates="card", uselist=False, cascade="all,delete")
+
+3. Балансы карты
+
+class CardBalance(Base):
+    id = Column(Integer, primary_key=True, index=True)
+    card_id = Column(Integer, ForeignKey("card.id"))
+    opening_balance = Column(Float, nullable=False, server_default="0")
+    topup_balance = Column(Float, nullable=False, server_default="0")
+    limit = Column(Float, nullable=False, server_default="1")
+    limit_per_transaction = Column(Float, nullable=False, server_default="1")
+    available = Column(Float, nullable=False, default=0)
+    used = Column(Float, nullable=False, default=0)
+    pending_balance = Column(Float, nullable=False, server_default="0")
+    fees_balance = Column(Float, nullable=False, server_default="0")
+    incoming_balance = Column(Float, nullable=False, server_default="0")
+    withdrawal_balance = Column(Float, nullable=False, server_default="0")
+
+    card = relationship("Card", back_populates="balance")
+
+4. Транзакции
+
+class Transaction(Base):
+    id = Column(Integer, primary_key=True, index=True)
+    card_id = Column(Integer, ForeignKey("card.id"), index=True)
+    failure_reason = Column(String, nullable=True, default=None)
+    merchant_name = Column(String, nullable=False, default="")
+    status = Column(String, nullable=False)
+    transaction_amount = Column(Float, nullable=False, default=0)
+    transaction_currency = Column(String, nullable=False, default="USD")
+    billing_amount = Column(Float, nullable=True, default=0)
+    billing_currency = Column(String, nullable=True, default="USD")
+    transaction_original_amount = Column(Float, nullable=True, default=0)
+    transaction_original_currency = Column(String, nullable=True, default="USD")
+    transaction_date = Column(String, nullable=False)
+    transaction_id = Column(String, nullable=False, index=True)
+    transaction_type = Column(String, nullable=False)
+    previous_tx = Column(JSON, nullable=True)
+    charge = Column(Float, nullable=True, default=0)
+
+    card = relationship("Card", back_populates="transactions")
+
+
+Задача:
+
+1. Построить запрос к БД, получающий информацию обо всех транзакциях по выбранному списку карт определенного пользователя, и выводящий результат со следующими полями:
+    - user_nickname
+    - user_email
+    - card_card_id
+    - card_mask_number
+    - card_balance_available
+    - transaction_transaction_id
+    - transaction_transaction_date
+    - transaction_transaction_amount
+    - transaction_transaction_currency
+    - transaction_status 
+    - transaction_transaction_type
+    - transaction_charge
+
+    Запрос должен примать фильтры для выдачи ответа по transaction_transaction_type, transaction_status, user_email, card_mask_number, а также данные для сортировки по transaction_transaction_date, user_email, card_card_id.
+
+2. Написать ендпойнт для получение запроса от пользователя для формирования отчета по п.1. Запрос должен идентифицировать пользователя по токену, на вход принять список карт (card_card_id), значения фильтров (необязательные параметры, могут быть, а могут и не быть), значения параметров сортировки (могут быть, могут не быть, по умолчанию - сортировка по дате, по убыванию (сначала новые)). Ответ - результат выполнения запроса из п.1, выданный в формате json.
+
+3. Написать ендпойнт, аналогичный п.3, но результат запроса записать в файл Excel и отправить на хранение в AWS S3. Пользователю вернуть имя файла.
+
+4. Написать ендпойнт, позволяющий скачать ранее сформированный отчет в формате Excel, по заданному имени. На вход принимается имя файла, на выходе - файл для скачивания.
+
+
+Использовать FastAPI, SQLAlchemy, boto3. Другие инструменты - на усмотрение исполнителя. 
+Результат предоставить в любом удобном для анализа виде (архив, репозиторий GitHub). 
+
+
+
+
+
+

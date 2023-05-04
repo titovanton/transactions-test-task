@@ -1,0 +1,8 @@
+chimp.py
+data
+__pycache__
+*.pyc
+*.sublime*
+ignored_files
+pgdata
+.DS*
